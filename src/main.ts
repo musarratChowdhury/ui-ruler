@@ -83,11 +83,11 @@ export default class Ruler {
       case "px":
         return 1;
       case "mm":
-        return this.calcPixelsPerMM();
+        return 60 / 25.4; // Approximately 2.36 pixels per mm
       case "cm":
-        return this.calcPixelsPerMM() * 10;
+        return (60 / 25.4) * 10; // Approximately 23.62 pixels per cm
       case "in":
-        return this.calcPixelsPerMM() * 25.4;
+        return 60; // 60 pixels per inch
       default:
         return 1;
     }
@@ -116,7 +116,7 @@ export default class Ruler {
         tickMinor!,
         tickMicro!,
         startX!,
-        showLabel!
+        showLabel! // Set unit type to inches for horizontal ruler
       );
     } else {
       this.drawTicks(
@@ -145,29 +145,98 @@ export default class Ruler {
     showLabel: boolean
   ) {
     this.ctx.beginPath();
-    const tickPositions = [major, minor, micro];
-    const tickHeights = [15, 10, 5];
+    const pixelsPerInch = 96; // Standard DPI for 1 inch
+    const tickPositions = [major, minor, micro]; // Major, minor, micro ticks
+    const tickHeights = [15, 10, 5]; // Heights for each type of tick
 
-    for (let i = start; i < length; i += this.unitDiv) {
-      const tickTypeIndex = tickPositions.findIndex(
-        (tick) => i % tick === 0 && tick > 0
-      );
-      if (tickTypeIndex === -1) continue;
-
-      const tickHeight = tickHeights[tickTypeIndex];
-      if (orientation === "horizontal") {
-        this.ctx.moveTo(i, 0);
-        this.ctx.lineTo(i, tickHeight);
-
-        if (showLabel && tickTypeIndex === 0) {
-          this.ctx.fillText(String(i), i + 2, tickHeight + 10);
+    if (this.options.unit == "in") {
+      for (let i = start; i < length; i += major) {
+        if (orientation === "horizontal") {
+          // Horizontal Ruler
+          this.ctx.moveTo(i, 0);
+          this.ctx.lineTo(i, tickHeights[0]);
+          const inchLabel = (i / 60).toFixed(0) + '"';
+          this.ctx.fillText(inchLabel, i + 2, tickHeights[0] + 10);
+        } else {
+          // Vertical Ruler
+          this.ctx.moveTo(0, i);
+          this.ctx.lineTo(tickHeights[1], i);
+          const inchLabel = (i / 60).toFixed(0) + '"';
+          this.ctx.fillText(inchLabel, tickHeights[0] + 2, i + 10);
         }
-      } else {
-        this.ctx.moveTo(0, i);
-        this.ctx.lineTo(tickHeight, i);
+      }
+      for (let i = start; i < length; i += minor) {
+        if (i % major === 0) {
+          continue;
+        }
+        if (orientation === "horizontal") {
+          // Horizontal Ruler
+          this.ctx.moveTo(i, 0);
+          this.ctx.lineTo(i, tickHeights[1]);
+        } else {
+          // Vertical Ruler
+          this.ctx.moveTo(0, i);
+          this.ctx.lineTo(tickHeights[1], i);
+        }
+      }
+      for (let i = start; i < length; i += micro) {
+        if (i % major === 0) {
+          continue;
+        }
+        if (i % minor === 0) {
+          continue;
+        }
+        if (orientation === "horizontal") {
+          // Horizontal Ruler
+          this.ctx.moveTo(i, 0);
+          this.ctx.lineTo(i, tickHeights[2]);
+        } else {
+          // Vertical Ruler
+          this.ctx.moveTo(0, i);
+          this.ctx.lineTo(tickHeights[2], i);
+        }
+      }
+    } else {
+      for (let i = start; i < length; i += this.unitDiv) {
+        // Determine which type of tick to draw (major, minor, micro)
+        let tickTypeIndex = -1;
+        if (i % major === 0 && major > 0) {
+          tickTypeIndex = 0; // Major tick
+        } else if (i % minor === 0 && minor > 0) {
+          tickTypeIndex = 1; // Minor tick
+        } else if (i % micro === 0 && micro > 0) {
+          tickTypeIndex = 2; // Micro tick
+        }
 
-        if (showLabel && tickTypeIndex === 0) {
-          this.ctx.fillText(String(i), tickHeight + 2, i + 10);
+        // If no matching tick type, skip this iteration
+        if (tickTypeIndex === -1) continue;
+
+        const tickHeight = tickHeights[tickTypeIndex];
+
+        if (orientation === "horizontal") {
+          // Horizontal Ruler
+          this.ctx.moveTo(i, 0);
+          this.ctx.lineTo(i, tickHeight);
+
+          // Show major tick label (in inches or default unit)
+          if (showLabel && tickTypeIndex === 0) {
+            this.ctx.fillText(String(i), i + 2, tickHeight + 10);
+          } else if (showLabel && tickTypeIndex === 0) {
+            // For other units, show the major tick labels
+            this.ctx.fillText(String(i), i + 2, tickHeight + 10);
+          }
+        } else {
+          // Vertical Ruler
+          this.ctx.moveTo(0, i);
+          this.ctx.lineTo(tickHeight, i);
+
+          // Show major tick label (in inches or default unit)
+          if (showLabel && tickTypeIndex === 0) {
+            this.ctx.fillText(String(i), tickHeight + 2, i + 10);
+          } else if (showLabel && tickTypeIndex === 0) {
+            // For other units, show the major tick labels
+            this.ctx.fillText(String(i), tickHeight + 2, i + 10);
+          }
         }
       }
     }
@@ -208,7 +277,7 @@ export default class Ruler {
   }
 
   private drawMousePosition() {
-    if (this.mouseX < 0 || this.mouseY < 0) return;
+    if (this.mouseX <= 0 || this.mouseY <= 0) return;
 
     // Calculate the position in units based on orientation
     const positionInUnits =
@@ -266,10 +335,10 @@ const container = document.getElementById("testDiv") as HTMLElement;
 const horizontalOptions = {
   orientation: "horizontal" as const,
   rulerThickness: 30, // Set height of the horizontal ruler
-  unit: "px",
-  tickMajor: 50,
-  tickMinor: 10,
-  tickMicro: 5,
+  unit: "in",
+  tickMajor: 60,
+  tickMinor: 30,
+  tickMicro: 10,
   showLabel: true,
   showMousePosition: true, // Set height of the horizontal ruler
 };
@@ -282,10 +351,10 @@ horizontalRuler.refresh(); // Render the ruler to ensure the settings apply
 const verticalOptions = {
   orientation: "vertical" as const,
   rulerThickness: 40, // Set width of the vertical ruler
-  unit: "px",
-  tickMajor: 50,
-  tickMinor: 10,
-  tickMicro: 5,
+  unit: "in",
+  tickMajor: 60,
+  tickMinor: 30,
+  tickMicro: 10,
   showLabel: true,
   showMousePosition: true,
 };
